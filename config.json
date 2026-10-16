@@ -1,6 +1,6 @@
 {
   "_help": "Настройки отчёта. scenarios: ID сценария Sendsay (номер из адреса app.sendsay.ru/automation/workflows/<ID>) -> название и язык. В отчёт попадают только сценарии из этого списка (auto_discover = false). Порядок писем — по номеру в названии письма («ПИСЬМО 5 …», «1. …»); only_chain: true убирает из сценария письма без номера (старые выпуски).",
-  "start_date": "2026-04-01",
+  "start_date": "2026-01-01",
   "auto_discover": false,
   "scenarios": {
     "17": {
