@@ -1,8 +1,34 @@
 {
-  "_help": "Настройки отчёта. scenarios: ID сценария Sendsay (номер из адреса app.sendsay.ru/automation/workflows/<ID>) -> название, продукт, язык (ru/en/auto). Сценарии, которых тут нет, всё равно попадут в отчёт под именем «Сценарий #ID», если auto_discover = true.",
+  "_help": "Настройки отчёта. scenarios: ID сценария Sendsay (номер из адреса app.sendsay.ru/automation/workflows/<ID>) -> название и язык. В отчёт попадают только сценарии из этого списка (auto_discover = false). Порядок писем — по номеру в названии письма («ПИСЬМО 5 …», «1. …»); only_chain: true убирает из сценария письма без номера (старые выпуски).",
   "start_date": "2026-04-01",
-  "auto_discover": true,
-  "scenarios": {},
+  "auto_discover": false,
+  "scenarios": {
+    "17": {
+      "name": "Inbound (от квалификации до сопровождения)",
+      "lang": "ru",
+      "only_chain": true
+    },
+    "7": {
+      "name": "Inbound (не удалось связаться)",
+      "lang": "ru",
+      "only_chain": true
+    },
+    "18": {
+      "name": "Предотток (ОСНО)",
+      "lang": "ru",
+      "only_chain": true
+    },
+    "3": {
+      "name": "INBOUND (регистрация)",
+      "lang": "ru",
+      "only_chain": true
+    },
+    "1": {
+      "name": "INBOUND (демо)",
+      "lang": "ru",
+      "only_chain": true
+    }
+  },
   "exclude_scenarios": [],
   "alerts": {
     "silence_days": 3,

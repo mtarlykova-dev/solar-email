@@ -38,7 +38,8 @@ def row_lang(row, meta):
     return lang if lang in ("ru", "en") else detect_lang(row["subject"], row["name"])
 
 
-NUM_PREFIX = re.compile(r"^\s*\(?(\d+)[.)]")
+# «1. …», «(2) …», «💙 ПИСЬМО 5 …», «Письмо 1 (после демо)»
+NUM_PREFIX = re.compile(r"^[^\w(]*\(?(?:письмо\s*)?(\d+)(?:[.)]|\s)", re.I)
 
 
 def assign_letters(rows, cfg):
@@ -89,14 +90,22 @@ def assign_letters(rows, cfg):
             r["letter"] = f"{lang}:{steps[k]}"
 
 
+def drop_unlisted(rows, cfg):
+    """Для сценариев с only_chain: true убирает письма вне цепочки
+    (без номера в названии и без совпадения с letters) — например, старые выпуски."""
+    strict = {s for s, c in cfg.get("scenarios", {}).items() if c.get("only_chain")}
+    return [r for r in rows if not (r["seq"] in strict and r["step_guess"])]
+
+
 def letter_labels(rows):
     """Подпись письма: «Письмо 2 (en) «последняя тема»»."""
     last = {}
+    one_lang = len({r["lang"] for r in rows}) <= 1
     for r in rows:
         key = (r["seq"], r["letter"])
         if key not in last or r["d"] >= last[key]["d"]:
             last[key] = r
-    return {k: f"Письмо {r['step']}{'?' if r['step_guess'] else ''} ({r['lang']}) «{r['subject'] or r['name']}»"
+    return {k: f"Письмо {r['step']}{'?' if r['step_guess'] else ''}{'' if one_lang else ' (' + r['lang'] + ')'} «{r['subject'] or r['name']}»"
             for k, r in last.items()}
 
 
@@ -235,6 +244,7 @@ def main():
     for r in rows:
         r["lang"] = row_lang(r, meta)
     assign_letters(rows, cfg)
+    rows = drop_unlisted(rows, cfg)
 
     today = dt.datetime.now(MSK).date()
     alerts = compute_alerts(rows, meta, cfg, today) if rows else []
