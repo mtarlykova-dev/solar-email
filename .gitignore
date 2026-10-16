@@ -1,0 +1,5 @@
+_site/
+data/demo.json
+data/*.tmp
+__pycache__/
+.DS_Store

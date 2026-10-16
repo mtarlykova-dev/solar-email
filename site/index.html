@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Триггерные рассылки</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #fbfbfc;
+  --surface: #ffffff;
+  --ink: #1b1f24;
+  --ink-2: #545c67;
+  --ink-3: #848b95;
+  --line: #e4e7eb;
+  --track: #eef0f3;
+  --f1: #9ec5f4; --f2: #5598e7; --f3: #1c5cab;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --good: #0a7d0a; --bad: #c22f2f;
+  --st-high: #d03b3b; --st-med: #ec835a; --st-low: #fab219;
+  --focus: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #15181c; --surface: #1c2025; --ink: #eef0f2; --ink-2: #b4bac2; --ink-3: #8a919a;
+    --line: #2d333a; --track: #262b31;
+    --f1: #184f95; --f2: #2a78d6; --f3: #86b6ef;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --good: #4cc24c; --bad: #ef6b6b; --focus: #6da7ec;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #15181c; --surface: #1c2025; --ink: #eef0f2; --ink-2: #b4bac2; --ink-3: #8a919a;
+  --line: #2d333a; --track: #262b31;
+  --f1: #184f95; --f2: #2a78d6; --f3: #86b6ef;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  --good: #4cc24c; --bad: #ef6b6b; --focus: #6da7ec;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 "Onest", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-feature-settings: "tnum" 0;
+}
+.num { font-variant-numeric: tabular-nums; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 32px 24px 80px; }
+@media (max-width: 640px) { .wrap { padding: 20px 16px 60px; } }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+h1 { font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+h1 span { color: var(--ink-3); font-weight: 500; }
+.stamp { color: var(--ink-2); font-size: 13px; }
+h2 { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 4px; }
+.sub { color: var(--ink-2); font-size: 13px; margin: 0 0 16px; }
+section { margin-top: 44px; }
+
+/* Фильтры */
+.filters { display: flex; flex-wrap: wrap; gap: 10px 20px; margin-top: 24px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 5; }
+.seg { display: inline-flex; background: var(--track); border-radius: 8px; padding: 2px; }
+@media (max-width: 640px) { .filters { position: static; } }
+.seg button { white-space: nowrap; border: 0; background: transparent; color: var(--ink-2); font: inherit; font-size: 13px; padding: 5px 11px; border-radius: 6px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 0 0 1px var(--line); }
+.fgroup[hidden] { display: none; }
+.fgroup { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); }
+select { font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; max-width: 260px; }
+
+/* Алерты */
+.alerts { margin-top: 24px; }
+.alerts h2 { margin-bottom: 8px; }
+.alert { display: grid; grid-template-columns: 150px 1fr; gap: 2px 16px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.alert:first-of-type { border-top: 1px solid var(--line); }
+.alert .lvl { grid-row: span 2; font-size: 13px; color: var(--ink-2); display: flex; align-items: flex-start; gap: 8px; white-space: nowrap; }
+.alert .lvl i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); display: inline-block; margin-top: 5px; flex: none; }
+.alert b { font-weight: 600; }
+.alert p { margin: 0; color: var(--ink-2); font-size: 13px; }
+.alert[hidden] { display: none; }
+.more { margin-top: 8px; border: 0; background: none; color: var(--focus); font: inherit; font-size: 13px; cursor: pointer; padding: 4px 0; }
+@media (max-width: 640px) { .alert { grid-template-columns: 1fr; } .alert .lvl { grid-row: auto; } }
+.alerts-ok { margin-top: 24px; color: var(--ink-2); font-size: 14px; display: flex; gap: 8px; align-items: center; }
+.alerts-ok i { width: 10px; height: 10px; border-radius: 50%; background: #0ca30c; display: inline-block; }
+
+/* KPI */
+.kpis { display: grid; grid-template-columns: repeat(6, 1fr); margin-top: 28px; }
+.kpi { padding: 4px 16px 4px 0; }
+.kpi + .kpi { padding-left: 16px; border-left: 1px solid var(--line); }
+.kpi .l { font-size: 13px; color: var(--ink-2); }
+.kpi .v { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: 2px; }
+.kpi .d { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.kpi .d.up { color: var(--good); } .kpi .d.down { color: var(--bad); }
+@media (max-width: 900px) {
+  .kpis { grid-template-columns: repeat(3, 1fr); row-gap: 18px; }
+  .kpi:nth-child(4) { border-left: 0; padding-left: 0; }
+}
+@media (max-width: 520px) {
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .kpi:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .kpi:nth-child(4) { border-left: 1px solid var(--line); padding-left: 16px; }
+}
+
+/* Цепочки: главный элемент страницы */
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); margin-bottom: 14px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 8px; border-radius: 2px; display: inline-block; }
+.scenario { margin-top: 28px; }
+.sc-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding-bottom: 8px; border-bottom: 2px solid var(--sc); }
+.sc-head h3 { margin: 0; font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.sc-head h3 i { width: 10px; height: 10px; border-radius: 50%; background: var(--sc); }
+.tag { font-size: 12px; color: var(--ink-2); background: var(--track); border-radius: 4px; padding: 1px 7px; }
+.sc-tot { margin-left: auto; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.branch { display: grid; grid-template-columns: 34px 1fr; gap: 0 10px; margin-top: 14px; }
+.branch .lang { font-size: 12px; font-weight: 600; color: var(--ink-3); padding-top: 14px; text-transform: none; }
+.chain { display: flex; gap: 0; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.letter { flex: 1 0 210px; max-width: 280px; position: relative; padding: 12px 18px 12px 0; }
+.letter + .letter { padding-left: 18px; border-left: 1px dashed var(--line); }
+.letter .n { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.letter .subj { font-size: 14px; font-weight: 500; line-height: 1.3; margin: 2px 0 10px; min-height: 2.6em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.funnel { display: grid; gap: 3px; margin-bottom: 10px; }
+.funnel .bar { height: 8px; background: var(--track); border-radius: 0 4px 4px 0; position: relative; }
+.funnel .bar b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; min-width: 2px; }
+.stats { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.stats dt { color: var(--ink-2); }
+.stats dd { margin: 0; text-align: right; font-weight: 500; }
+.stats dd.warn { color: var(--bad); }
+.bm { font-size: 10px; margin-right: 5px; vertical-align: 1px; }
+.bm.ok { color: var(--good); } .bm.low { color: var(--bad); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.bmline { margin-top: 8px; font-size: 12px; color: var(--ink-3); line-height: 1.4; }
+.empty { color: var(--ink-2); font-size: 14px; padding: 16px 0; }
+
+/* График */
+.chart-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.chart-box { position: relative; margin-top: 12px; }
+svg text { font-family: inherit; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.08); min-width: 170px; z-index: 3; display: none; }
+.tip .t { font-weight: 600; margin-bottom: 4px; }
+.tip .r { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.tip .r span { display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); }
+.tip .r i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+.tip .note { color: var(--ink-3); margin-top: 4px; }
+details { margin-top: 10px; font-size: 13px; }
+summary { cursor: pointer; color: var(--ink-2); }
+
+/* Таблицы */
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 500; color: var(--ink-2); }
+td .cell { display: inline-flex; align-items: center; gap: 8px; justify-content: flex-end; }
+td .mini { width: 56px; height: 6px; background: var(--track); border-radius: 0 3px 3px 0; position: relative; display: inline-block; }
+td .mini b { position: absolute; left: 0; top: 0; bottom: 0; background: var(--s1); border-radius: 0 3px 3px 0; }
+tr.grp td { font-weight: 600; }
+tr.bmrow td { color: var(--ink-3); font-style: normal; }
+tr.bmrow:first-of-type td { border-top: 1px solid var(--ink-3); }
+a { color: var(--focus); }
+.foot { margin-top: 56px; color: var(--ink-3); font-size: 12px; max-width: 72ch; }
+.foot p { margin: 4px 0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Триггерные рассылки <span>Solar Staff</span></h1>
+    <div class="stamp" id="stamp">Загрузка данных…</div>
+  </header>
+
+  <div class="filters" role="group" aria-label="Фильтры">
+    <div class="fgroup" id="fg-product">Продукт <div class="seg" data-f="product"></div></div>
+    <div class="fgroup">Язык <div class="seg" data-f="lang"></div></div>
+    <div class="fgroup">Период <div class="seg" data-f="period"></div></div>
+    <div class="fgroup"><label for="sc-select">Сценарий</label> <select id="sc-select"></select></div>
+  </div>
+
+  <div id="alerts"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <section>
+    <h2>Цепочки по письмам</h2>
+    <p class="sub">Письма в порядке цепочки. Полосы показывают, какая доля отправленных писем доставлена, открыта и дала клик. Метрики считаются от доставленных, открытия и клики уникальные. ▲ и ▼ — лучше или хуже ориентира: для первого письма цепочки это welcome-письма, для остальных — триггерные письма. OR не сравниваем: открытия завышены из-за Apple Mail Privacy Protection.</p>
+    <div class="legend">
+      <span><i style="background:var(--track)"></i>Отправлено</span>
+      <span><i style="background:var(--f1)"></i>Доставлено</span>
+      <span><i style="background:var(--f2)"></i>Открыли</span>
+      <span><i style="background:var(--f3)"></i>Кликнули</span>
+    </div>
+    <div id="chains"></div>
+  </section>
+
+  <section>
+    <div class="chart-head">
+      <div>
+        <h2>Динамика по неделям</h2>
+        <p class="sub" id="trend-sub">Последние 26 недель, неделя с понедельника.</p>
+      </div>
+      <div class="seg" data-f="metric"></div>
+    </div>
+    <div class="legend" id="trend-legend"></div>
+    <div class="chart-box" id="trend"><div class="tip" id="tip"></div></div>
+    <details><summary>Показать таблицей</summary><div class="tbl-wrap" id="trend-table"></div></details>
+  </section>
+
+  <section>
+    <h2>Сравнение ru и en</h2>
+    <p class="sub">Сравнение за выбранный период по всем сценариям продукта.</p>
+    <div class="tbl-wrap" id="matrix"></div>
+  </section>
+
+  <div class="foot">
+    <p>OR — уникальные открытия / доставлено. CTR — уникальные клики / доставлено. CTOR — уникальные клики / уникальные открытия. Отписки — от доставленных, ошибки — от отправленных.</p>
+    <p>Открытия и клики за последние 2–3 дня ещё набираются, поэтому последняя неделя обычно ниже реальных значений.</p>
+    <p>Данные обновляются автоматически из Sendsay через GitHub Actions. Только агрегаты по письмам, без адресов.</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const SLOTS = ["--s1","--s2","--s3","--s4","--s5","--s6","--s7","--s8"];
+  const LEVEL = { high: ["Срочно", "--st-high"], medium: ["Важно", "--st-med"], low: ["Обратить внимание", "--st-low"] };
+  const METRICS = {
+    sent: { label: "Отправлено", fmt: v => fmtInt(v) },
+    or:   { label: "OR",   fmt: v => fmtPct(v) },
+    ctr:  { label: "CTR",  fmt: v => fmtPct(v, 2) },
+    ctor: { label: "CTOR", fmt: v => fmtPct(v) },
+    unsub:{ label: "Отписки", fmt: v => fmtPct(v, 2) },
+  };
+  const state = { product: "all", lang: "all", period: "30", scenario: "all", metric: "or" };
+  let R = null, colorOf = {};
+
+  const nf = new Intl.NumberFormat("ru-RU");
+  const fmtInt = v => v == null ? "—" : nf.format(Math.round(v));
+  const fmtPct = (v, d = 1) => v == null || !isFinite(v) ? "—" : (v * 100).toFixed(d).replace(".", ",") + "%";
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const addDays = (iso, n) => { const d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const fmtDate = iso => new Date(iso + "T00:00:00Z").toLocaleDateString("ru-RU", { day: "numeric", month: "short", timeZone: "UTC" });
+
+  function sum(rows) {
+    const t = { sent: 0, delivered: 0, bounced: 0, opens: 0, u_opens: 0, clicks: 0, u_clicks: 0, unsubs: 0 };
+    for (const r of rows) for (const k in t) t[k] += r[k];
+    return t;
+  }
+  function rates(t) {
+    const div = (a, b) => b ? a / b : null;
+    return {
+      sent: t.sent, delivered: t.delivered,
+      deliv: div(t.delivered, t.sent), or: div(t.u_opens, t.delivered), ctr: div(t.u_clicks, t.delivered),
+      ctor: div(t.u_clicks, t.u_opens), unsub: div(t.unsubs, t.delivered), bounce: div(t.bounced, t.sent),
+    };
+  }
+
+  function periodBounds() {
+    const end = addDays(R.today, -1);
+    if (state.period === "all") return [R.rows.length ? R.rows[0].d : end, end, null];
+    const n = +state.period;
+    const start = addDays(end, -(n - 1));
+    return [start, end, [addDays(start, -n), addDays(start, -1)]];
+  }
+
+  function baseFilter(r) {
+    const sc = R.scenarios[r.seq];
+    if (state.product !== "all" && sc.product !== state.product) return false;
+    if (state.lang !== "all" && r.lang !== state.lang) return false;
+    if (state.scenario !== "all" && r.seq !== state.scenario) return false;
+    return true;
+  }
+
+  // ---------- Фильтры ----------
+  function seg(name, options) {
+    const el = document.querySelector(`.seg[data-f="${name}"]`);
+    el.innerHTML = options.map(([v, l]) => `<button type="button" data-v="${esc(v)}" aria-pressed="${state[name] === v}">${esc(l)}</button>`).join("");
+    el.onclick = e => {
+      const b = e.target.closest("button"); if (!b) return;
+      state[name] = b.dataset.v; render();
+      el.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x.dataset.v === state[name]));
+    };
+  }
+  function setupFilters() {
+    const products = [...new Set(Object.values(R.scenarios).map(s => s.product))].sort();
+    seg("product", [["all", "Все"], ...products.map(p => [p, p])]);
+    document.getElementById("fg-product").hidden = products.length < 2;
+    seg("lang", [["all", "Все"], ["ru", "ru"], ["en", "en"]]);
+    seg("period", [["7", "7 дней"], ["30", "30 дней"], ["90", "90 дней"], ["all", "Всё время"]]);
+    seg("metric", Object.entries(METRICS).map(([k, m]) => [k, m.label]));
+    const sel = document.getElementById("sc-select");
+    sel.innerHTML = `<option value="all">Все сценарии</option>` +
+      scenarioOrder().map(s => `<option value="${esc(s)}">${esc(R.scenarios[s].name)}</option>`).join("");
+    sel.onchange = () => { state.scenario = sel.value; render(); };
+  }
+  function scenarioOrder() {
+    const withData = new Set(R.rows.map(r => r.seq));
+    return Object.keys(R.scenarios).filter(s => withData.has(s));
+  }
+
+  // ---------- Алерты ----------
+  function renderAlerts() {
+    const box = document.getElementById("alerts");
+    const list = R.alerts.filter(a => {
+      const sc = R.scenarios[a.seq];
+      return (state.product === "all" || sc.product === state.product) && (state.scenario === "all" || a.seq === state.scenario);
+    });
+    if (!list.length) { box.innerHTML = `<div class="alerts-ok"><i></i>Алертов нет: все сценарии отправляют письма, ошибки и отписки в норме.</div>`; return; }
+    const LIMIT = 5;
+    const n = list.length;
+    const word = n % 10 === 1 && n % 100 !== 11 ? "алерт" : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? "алерта" : "алертов");
+    box.innerHTML = `<div class="alerts"><h2>${n} ${word}</h2>` + list.map((a, i) => {
+      const [lbl, c] = LEVEL[a.level];
+      return `<div class="alert" style="--c:var(${c})" ${i >= LIMIT ? "hidden" : ""}><div class="lvl"><i></i>${lbl}</div><b>${esc(a.title)}</b><p>${esc(a.detail)}</p></div>`;
+    }).join("") + (n > LIMIT ? `<button type="button" class="more">Показать ещё ${n - LIMIT}</button>` : "") + `</div>`;
+    const more = box.querySelector(".more");
+    if (more) more.onclick = () => { box.querySelectorAll(".alert[hidden]").forEach(x => x.hidden = false); more.remove(); };
+  }
+
+  // ---------- KPI ----------
+  function renderKpis() {
+    const [s, e, prev] = periodBounds();
+    const rows = R.rows.filter(baseFilter);
+    const cur = rates(sum(rows.filter(r => r.d >= s && r.d <= e)));
+    const old = prev ? rates(sum(rows.filter(r => r.d >= prev[0] && r.d <= prev[1]))) : null;
+    const items = [
+      ["Отправлено", cur.sent, v => fmtInt(v), "sent", 1],
+      ["Доставляемость", cur.deliv, v => fmtPct(v), "deliv", 1],
+      ["OR", cur.or, v => fmtPct(v), "or", 1],
+      ["CTR", cur.ctr, v => fmtPct(v, 2), "ctr", 1],
+      ["CTOR", cur.ctor, v => fmtPct(v), "ctor", 1],
+      ["Отписки", cur.unsub, v => fmtPct(v, 2), "unsub", -1],
+    ];
+    document.getElementById("kpis").innerHTML = items.map(([l, v, f, k, good]) => {
+      let d = `<div class="d">${prev ? "нет данных для сравнения" : `${fmtDate(s)} — ${fmtDate(e)}`}</div>`;
+      if (old && old[k] != null && v != null) {
+        const isCount = k === "sent";
+        const diff = isCount ? (old[k] ? v / old[k] - 1 : null) : v - old[k];
+        if (diff != null) {
+          const txt = isCount ? `${diff >= 0 ? "+" : "−"}${Math.abs(diff * 100).toFixed(0)}%` : `${diff >= 0 ? "+" : "−"}${Math.abs(diff * 100).toFixed(k === "ctr" || k === "unsub" ? 2 : 1).replace(".", ",")} п.п.`;
+          const cls = Math.abs(diff) < 1e-9 || isCount ? "" : (diff * good > 0 ? "up" : "down");
+          d = `<div class="d ${cls}">${txt} к прошлым ${state.period} дн.</div>`;
+        }
+      }
+      return `<div class="kpi"><div class="l">${l}</div><div class="v">${f(v)}</div>${d}</div>`;
+    }).join("");
+  }
+
+  // ---------- Цепочки ----------
+  function renderChains() {
+    const [s, e] = periodBounds();
+    const rows = R.rows.filter(r => baseFilter(r) && r.d >= s && r.d <= e);
+    const box = document.getElementById("chains");
+    if (!rows.length) { box.innerHTML = `<p class="empty">За выбранный период писем нет. Выберите период длиннее или другой фильтр.</p>`; return; }
+    let html = "";
+    for (const seq of scenarioOrder()) {
+      const sr = rows.filter(r => r.seq === seq);
+      if (!sr.length) continue;
+      const sc = R.scenarios[seq];
+      const tot = rates(sum(sr));
+      html += `<div class="scenario" style="--sc:var(${colorOf[seq]})">
+        <div class="sc-head"><h3><i></i>${esc(sc.name)}</h3><span class="tag">${esc(sc.product)}</span><span class="tag">ID ${esc(seq)}</span>
+        <span class="sc-tot">${fmtInt(tot.sent)} отправлено · OR ${fmtPct(tot.or)} · CTR ${fmtPct(tot.ctr, 2)}</span></div>`;
+      const langs = [...new Set(sr.map(r => r.lang))].sort();
+      for (const lang of langs) {
+        const lr = sr.filter(r => r.lang === lang);
+        const byLetter = new Map();
+        for (const r of lr) {
+          if (!byLetter.has(r.letter)) byLetter.set(r.letter, []);
+          byLetter.get(r.letter).push(r);
+        }
+        const letters = [...byLetter.values()].map(rs => {
+          const last = rs.reduce((a, b) => (b.d > a.d ? b : a));
+          return { step: rs[0].step, guess: rs[0].step_guess, subject: last.subject || last.name, name: last.name, t: sum(rs) };
+        }).sort((a, b) => a.step - b.step);
+        const maxSent = Math.max(...letters.map(l => l.t.sent), 1);
+        html += `<div class="branch"><div class="lang">${esc(lang)}</div><div class="chain">`;
+        letters.forEach(l => {
+          const r = rates(l.t);
+          const w = v => (v / maxSent * 100).toFixed(1) + "%";
+          const bm = R.benchmarks ? (l.step === 1 ? R.benchmarks.first : R.benchmarks.next) : null;
+          const cmp = (k, d, lowerIsBetter) => {
+            const v = r[k];
+            let mark = "";
+            if (bm && bm[k] != null && v != null) {
+              const better = lowerIsBetter ? v <= bm[k] : v >= bm[k];
+              mark = `<span class="bm ${better ? "ok" : "low"}" title="Ориентир (${esc(bm.label)}): ${fmtPct(bm[k], d)}">${better ? "▲" : "▼"}<span class="sr">${better ? "лучше ориентира" : "хуже ориентира"}</span></span>`;
+            }
+            return `${mark}${fmtPct(v, d)}`;
+          };
+          html += `<div class="letter" title="${esc(l.name)}">
+            <div class="n">Письмо ${l.step}${l.guess ? " · порядок не задан" : ""}</div>
+            <div class="subj">${esc(l.subject)}</div>
+            <div class="funnel" aria-hidden="true">
+              <div class="bar" style="width:${w(l.t.sent)}"><b style="width:${l.t.sent ? (l.t.delivered / l.t.sent * 100) : 0}%;background:var(--f1)"></b></div>
+              <div class="bar" style="width:${w(l.t.sent)}"><b style="width:${l.t.sent ? (l.t.u_opens / l.t.sent * 100) : 0}%;background:var(--f2)"></b></div>
+              <div class="bar" style="width:${w(l.t.sent)}"><b style="width:${l.t.sent ? (l.t.u_clicks / l.t.sent * 100) : 0}%;background:var(--f3)"></b></div>
+            </div>
+            <dl class="stats">
+              <dt>Отправлено</dt><dd>${fmtInt(l.t.sent)}</dd>
+              <dt>OR</dt><dd>${fmtPct(r.or)}</dd>
+              <dt>CTR</dt><dd>${cmp("ctr", 2, false)}</dd>
+              <dt>CTOR</dt><dd>${cmp("ctor", 1, false)}</dd>
+              <dt>Отписки</dt><dd>${cmp("unsub", 2, true)}</dd>
+              <dt>Ошибки</dt><dd>${cmp("bounce", 1, true)}</dd>
+            </dl>
+            ${bm ? `<div class="bmline">Ориентир ${l.step === 1 ? "для 1-го письма" : "для следующих писем"}: CTR ${fmtPct(bm.ctr, 1)}, CTOR ${fmtPct(bm.ctor, 0)}, отписки ${fmtPct(bm.unsub, 2)}, ошибки ${fmtPct(bm.bounce, 1)}</div>` : ""}
+            </div>`;
+        });
+        html += `</div></div>`;
+      }
+      html += `</div>`;
+    }
+    box.innerHTML = html;
+  }
+
+  // ---------- Недельная динамика ----------
+  function weekStart(iso) {
+    const d = new Date(iso + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    return d.toISOString().slice(0, 10);
+  }
+  function renderTrend() {
+    const lastFull = addDays(R.today, -1);
+    const weeks = [];
+    let w = weekStart(lastFull);
+    for (let i = 0; i < 26; i++) { weeks.unshift(w); w = addDays(w, -7); }
+    const rows = R.rows.filter(r => baseFilter(r) && r.d >= weeks[0] && r.d <= lastFull);
+    const seqs = scenarioOrder().filter(s => rows.some(r => r.seq === s));
+    const m = state.metric;
+    const series = seqs.map(seq => {
+      const by = {};
+      for (const r of rows) if (r.seq === seq) { const k = weekStart(r.d); (by[k] ||= []).push(r); }
+      const vals = weeks.map(wk => {
+        if (!by[wk]) return null;
+        const t = rates(sum(by[wk]));
+        if (m !== "sent" && t.delivered < 10) return null;
+        return t[m];
+      });
+      return { seq, name: R.scenarios[seq].name, color: css(colorOf[seq]), vals };
+    });
+    const partial = weekStart(lastFull) === weeks[25] && addDays(weeks[25], 6) > lastFull;
+
+    document.getElementById("trend-legend").innerHTML = series.length > 1
+      ? series.map(s => `<span><i style="background:${s.color};height:3px"></i>${esc(s.name)}</span>`).join("") : "";
+    document.getElementById("trend-sub").textContent =
+      `${METRICS[m].label} по сценариям за последние 26 недель, неделя с понедельника.` + (partial ? " Последняя неделя ещё не закончилась." : "");
+
+    const box = document.getElementById("trend");
+    const tip = document.getElementById("tip");
+    box.querySelectorAll("svg, .empty").forEach(n => n.remove());
+    if (!series.length) { box.insertAdjacentHTML("afterbegin", `<p class="empty">Нет данных за последние 26 недель для этого фильтра.</p>`); document.getElementById("trend-table").innerHTML = ""; return; }
+
+    const W = Math.max(320, box.clientWidth), H = 300, ml = 52, mr = 16, mt = 12, mb = 30;
+    const all = series.flatMap(s => s.vals).filter(v => v != null);
+    let ymax = Math.max(...all, m === "sent" ? 1 : 0.001);
+    const ticks = niceTicks(ymax); ymax = ticks[ticks.length - 1];
+    const x = i => ml + (W - ml - mr) * (i / (weeks.length - 1));
+    const y = v => mt + (H - mt - mb) * (1 - v / ymax);
+    const fmtTick = v => m === "sent" ? (v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0).replace(".", ",") + "K" : String(v)) : (v * 100).toFixed(ymax < 0.05 ? 1 : 0).replace(".", ",") + "%";
+    const grid = css("--line"), ink3 = css("--ink-3"), surf = css("--surface");
+    let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(METRICS[m].label)} по неделям">`;
+    for (const t of ticks) svg += `<line x1="${ml}" x2="${W - mr}" y1="${y(t)}" y2="${y(t)}" stroke="${grid}" stroke-width="1"/><text x="${ml - 8}" y="${y(t) + 4}" text-anchor="end" font-size="11" fill="${ink3}">${fmtTick(t)}</text>`;
+    const step = W < 600 ? 6 : 3;
+    weeks.forEach((wk, i) => { if (i % step === (25 % step)) svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="11" fill="${ink3}">${fmtDate(wk)}</text>`; });
+    svg += `<line id="xh" x1="0" x2="0" y1="${mt}" y2="${H - mb}" stroke="${ink3}" stroke-width="1" visibility="hidden"/>`;
+    for (const s of series) {
+      let d = "", pen = false;
+      s.vals.forEach((v, i) => { if (v == null) { pen = false; return; } d += `${pen ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`; pen = true; });
+      svg += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      s.vals.forEach((v, i) => {
+        const prev = s.vals[i - 1], next = s.vals[i + 1];
+        if (v != null && prev == null && next == null) svg += `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="${s.color}" stroke="${surf}" stroke-width="2"/>`;
+      });
+      const li = s.vals.map((v, i) => v != null ? i : -1).filter(i => i >= 0).pop();
+      if (li != null) svg += `<circle cx="${x(li)}" cy="${y(s.vals[li])}" r="4" fill="${s.color}" stroke="${surf}" stroke-width="2"/>`;
+    }
+    svg += `<g id="hdots"></g><rect x="${ml}" y="${mt}" width="${W - ml - mr}" height="${H - mt - mb}" fill="transparent" id="hit"/></svg>`;
+    box.insertAdjacentHTML("afterbegin", svg);
+
+    const hit = box.querySelector("#hit"), xh = box.querySelector("#xh"), hd = box.querySelector("#hdots");
+    const show = i => {
+      xh.setAttribute("x1", x(i)); xh.setAttribute("x2", x(i)); xh.setAttribute("visibility", "visible");
+      hd.innerHTML = series.map(s => s.vals[i] == null ? "" : `<circle cx="${x(i)}" cy="${y(s.vals[i])}" r="4" fill="${s.color}" stroke="${surf}" stroke-width="2"/>`).join("");
+      const rowsHtml = series.map(s => `<div class="r"><span><i style="background:${s.color}"></i>${esc(s.name)}</span><b>${METRICS[m].fmt(s.vals[i])}</b></div>`).join("");
+      const note = i === 25 && partial ? `<div class="note">Неделя ещё идёт</div>` : "";
+      tip.innerHTML = `<div class="t">Неделя с ${fmtDate(weeks[i])}</div>${rowsHtml}${note}`;
+      tip.style.display = "block";
+      const tw = tip.offsetWidth;
+      tip.style.left = Math.min(Math.max(0, x(i) + 12), W - tw) + "px";
+      if (x(i) + 12 + tw > W) tip.style.left = Math.max(0, x(i) - tw - 12) + "px";
+      tip.style.top = mt + "px";
+    };
+    const hide = () => { xh.setAttribute("visibility", "hidden"); hd.innerHTML = ""; tip.style.display = "none"; };
+    hit.addEventListener("pointermove", ev => {
+      const rect = hit.getBoundingClientRect();
+      const px = ev.clientX - rect.left;
+      show(Math.round(px / rect.width * (weeks.length - 1)));
+    });
+    hit.addEventListener("pointerleave", hide);
+
+    document.getElementById("trend-table").innerHTML = `<table><thead><tr><th>Неделя</th>${series.map(s => `<th>${esc(s.name)}</th>`).join("")}</tr></thead><tbody>` +
+      weeks.map((wk, i) => `<tr><td>${fmtDate(wk)}</td>${series.map(s => `<td>${METRICS[m].fmt(s.vals[i])}</td>`).join("")}</tr>`).reverse().join("") + `</tbody></table>`;
+  }
+  function niceTicks(max) {
+    const raw = max / 4, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const stepv = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= raw);
+    const out = []; for (let v = 0; v <= max + stepv * 0.999; v += stepv) out.push(+v.toPrecision(10));
+    return out.length > 1 ? out : [0, max];
+  }
+
+  // ---------- Матрица продукт × язык ----------
+  function renderMatrix() {
+    const [s, e] = periodBounds();
+    const rows = R.rows.filter(r => r.d >= s && r.d <= e && (state.scenario === "all" || r.seq === state.scenario));
+    const products = [...new Set(Object.values(R.scenarios).map(x => x.product))].sort()
+      .filter(p => state.product === "all" || p === state.product);
+    const groups = [];
+    for (const p of products) {
+      const pr = rows.filter(r => R.scenarios[r.seq].product === p);
+      if (!pr.length) continue;
+      groups.push({ label: p, grp: true, r: rates(sum(pr)) });
+      for (const lang of ["ru", "en"]) {
+        const lr = pr.filter(r => r.lang === lang);
+        if (lr.length) groups.push({ label: lang, grp: false, r: rates(sum(lr)) });
+      }
+    }
+    const box = document.getElementById("matrix");
+    if (!groups.length) { box.innerHTML = `<p class="empty">За выбранный период данных нет.</p>`; return; }
+    const cols = [["or", "OR", 1], ["ctr", "CTR", 2], ["ctor", "CTOR", 1], ["unsub", "Отписки", 2], ["bounce", "Ошибки", 1]];
+    const mx = Object.fromEntries(cols.map(([k]) => [k, Math.max(...groups.map(g => g.r[k] || 0), 1e-9)]));
+    const B = R.benchmarks;
+    const bmRows = B ? ["industry", "next", "first"].filter(k => B[k]).map(k =>
+      `<tr class="bmrow"><td>Ориентир: ${esc(B[k].label)}</td><td>—</td>` +
+      cols.map(([c, , d]) => `<td>${B[k][c] != null ? fmtPct(B[k][c], d) : "—"}</td>`).join("") + `</tr>`).join("") : "";
+    box.innerHTML = `<table><thead><tr><th></th><th>Отправлено</th>${cols.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>` +
+      groups.map(g => `<tr class="${g.grp ? "grp" : ""}"><td>${g.grp ? esc(g.label) : "&nbsp;&nbsp;&nbsp;" + esc(g.label)}</td><td>${fmtInt(g.r.sent)}</td>` +
+        cols.map(([k, , d]) => `<td><span class="cell">${fmtPct(g.r[k], d)}<span class="mini"><b style="width:${((g.r[k] || 0) / mx[k] * 100).toFixed(1)}%"></b></span></span></td>`).join("") + `</tr>`).join("") +
+      bmRows + `</tbody></table>` +
+      (B ? `<p class="sub" style="margin-top:8px">Ориентиры: <a href="${esc(B.source_url)}" target="_blank" rel="noopener">${esc(B.source)}</a>. Публичных бенчмарков именно для B2B-финтеха нет, это ближайшие срезы.</p>` : "");
+  }
+
+  function render() { renderAlerts(); renderKpis(); renderChains(); renderTrend(); renderMatrix(); }
+
+  fetch("report.json", { cache: "no-store" }).then(r => {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }).then(data => {
+    R = data;
+    R.rows.sort((a, b) => a.d.localeCompare(b.d));
+    R.thr = R.thresholds || { unsub: 0.01, bounce: 0.05 };
+    Object.keys(R.scenarios).forEach((s, i) => colorOf[s] = SLOTS[i % SLOTS.length]);
+    const stamp = document.getElementById("stamp");
+    if (!R.rows.length) {
+      stamp.textContent = "Данных пока нет";
+      document.getElementById("chains").innerHTML = `<p class="empty">Данные ещё не загружены. Запустите workflow «Обновить отчёт» в GitHub Actions — после первого прогона здесь появятся цифры.</p>`;
+      return;
+    }
+    const gen = R.generated_at ? new Date(R.generated_at).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" }) : "—";
+    stamp.textContent = `Обновлено ${gen} МСК` + (R.source === "demo" ? " · демо-данные" : "");
+    setupFilters();
+    render();
+    let t; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(renderTrend, 150); });
+  }).catch(err => {
+    document.getElementById("stamp").textContent = "Не удалось загрузить report.json: " + err.message;
+  });
+})();
+</script>
+</body>
+</html>

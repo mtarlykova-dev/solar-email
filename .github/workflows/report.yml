@@ -1,0 +1,94 @@
+name: Обновить отчёт
+
+on:
+  schedule:
+    - cron: "47 3 * * *"   # каждый день в 06:47 МСК
+  workflow_dispatch:
+    inputs:
+      fetch_days:
+        description: "Перезапросить последние N дней (пусто — весь период с start_date)"
+        required: false
+        default: ""
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "scripts/**"
+      - "config.json"
+      - "imports/**"
+      - ".github/workflows/report.yml"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: report
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      HAS_SENDSAY: ${{ secrets.SENDSAY_APIKEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Импорт ручных выгрузок из imports/
+        run: |
+          shopt -s nullglob
+          files=(imports/[0-9]*/*.zip imports/[0-9]*/*.csv)
+          if [ ${#files[@]} -gt 0 ]; then
+            python scripts/import_csv.py "${files[@]}"
+            for f in "${files[@]}"; do
+              dest="imports/done/$(basename "$(dirname "$f")")"
+              mkdir -p "$dest"
+              git mv "$f" "$dest/" 2>/dev/null || mv "$f" "$dest/"
+            done
+          else
+            echo "Новых файлов нет"
+          fi
+
+      - name: Загрузка статистики из Sendsay
+        if: env.HAS_SENDSAY == 'true'
+        env:
+          SENDSAY_LOGIN: ${{ secrets.SENDSAY_LOGIN }}
+          SENDSAY_APIKEY: ${{ secrets.SENDSAY_APIKEY }}
+          FETCH_DAYS: ${{ github.event.inputs.fetch_days }}
+        run: python scripts/fetch_sendsay.py
+
+      - name: Сборка страницы и алертов
+        run: python scripts/build.py
+
+      - name: Сохранить данные в репозиторий
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -d data ]; then git add data; fi
+          if [ -d imports ]; then git add imports; fi
+          if git diff --cached --quiet; then
+            echo "Данные не изменились"
+          else
+            git commit -m "Данные рассылок на $(TZ=Europe/Moscow date +%Y-%m-%d)"
+            git push
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

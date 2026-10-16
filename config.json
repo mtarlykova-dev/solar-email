@@ -1,0 +1,48 @@
+{
+  "_help": "Настройки отчёта. scenarios: ID сценария Sendsay (номер из адреса app.sendsay.ru/automation/workflows/<ID>) -> название, продукт, язык (ru/en/auto). Сценарии, которых тут нет, всё равно попадут в отчёт под именем «Сценарий #ID», если auto_discover = true.",
+  "start_date": "2026-04-01",
+  "auto_discover": true,
+  "scenarios": {},
+  "exclude_scenarios": [],
+  "alerts": {
+    "silence_days": 3,
+    "silence_min_prev_sends": 10,
+    "volume_drop_ratio": 0.5,
+    "volume_min_weekly": 20,
+    "rate_window_days": 14,
+    "min_events": 3,
+    "bounce_rate_max": 0.03,
+    "bounce_min_sent": 30,
+    "unsub_rate_max": 0.006,
+    "unsub_min_delivered": 50,
+    "or_drop_ratio": 0.7,
+    "or_min_delivered": 100
+  },
+  "benchmarks": {
+    "_help": "Ориентиры для карточек писем. first — первое письмо цепочки, next — остальные письма. Источник: GetResponse Email Marketing Benchmarks (отчёт 2024, данные 2023). OR не оцениваем: открытия искажены Apple Mail Privacy Protection.",
+    "source": "GetResponse Email Marketing Benchmarks, данные 2023",
+    "source_url": "https://www.getresponse.com/resources/reports/email-marketing-benchmarks",
+    "first": {
+      "label": "welcome-письма",
+      "ctr": 0.166,
+      "ctor": 0.1985,
+      "unsub": 0.0094,
+      "bounce": 0.0398
+    },
+    "next": {
+      "label": "триггерные письма",
+      "ctr": 0.0502,
+      "ctor": 0.1107,
+      "unsub": 0.0038,
+      "bounce": 0.0238
+    },
+    "industry": {
+      "label": "финансовые услуги, все рассылки",
+      "ctr": 0.0534,
+      "ctor": 0.154,
+      "unsub": 0.0008,
+      "bounce": 0.0179
+    }
+  },
+  "default_product": "Solar Staff"
+}
