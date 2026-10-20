@@ -1,0 +1,21 @@
+{
+ "stages": [
+  "Sendsay: выпусков в цепочках — 870 (всего выпусков сценариев — 891)",
+  "Sendsay: доставок — 2953, пропущено без адреса/даты — 0, статусы: {'-1511': 1, '1': 2865, '-2': 10, '-1550': 31, '-3': 25, '-544': 16, '-1552': 1, '-1521': 1, '-1554': 2, '0': 1}",
+  "Получателей (уникальных адресов): 743",
+  "amoCRM: проверено адресов 200 из 743"
+ ],
+ "warnings": [],
+ "error": {
+  "type": "ConnectionError",
+  "message": "('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+  "where": [
+   "sessions.py:671 get",
+   "sessions.py:651 request",
+   "sessions.py:784 send",
+   "adapters.py:711 send"
+  ]
+ },
+ "ok": false,
+ "finished_at": "2026-10-20T19:55:12+00:00"
+}
