@@ -109,6 +109,15 @@ def letter_labels(rows):
             for k, r in last.items()}
 
 
+def load_conversion():
+    """data/conversion.json от scripts/fetch_conversion.py (если уже собран)."""
+    path = ROOT / "data" / "conversion.json"
+    if not path.exists():
+        return None
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
 def window(rows, start, end):
     return [r for r in rows if start <= r["d"] <= end]
 
@@ -268,6 +277,7 @@ def main():
         "alerts": alerts,
         "thresholds": {"unsub": cfg["alerts"]["unsub_rate_max"], "bounce": cfg["alerts"]["bounce_rate_max"]},
         "benchmarks": cfg.get("benchmarks"),
+        "conversion": load_conversion(),
         "rows": rows,
     }
     with open(site / "report.json", "w", encoding="utf-8") as f:

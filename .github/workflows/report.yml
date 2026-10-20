@@ -32,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_SENDSAY: ${{ secrets.SENDSAY_APIKEY != '' }}
+      HAS_AMO: ${{ secrets.AMO_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -61,6 +62,17 @@ jobs:
           SENDSAY_APIKEY: ${{ secrets.SENDSAY_APIKEY }}
           FETCH_DAYS: ${{ github.event.inputs.fetch_days }}
         run: python scripts/fetch_sendsay.py
+
+      - name: Влияние на возврат лидов (Sendsay × amoCRM)
+        if: env.HAS_SENDSAY == 'true' && env.HAS_AMO == 'true'
+        continue-on-error: true
+        env:
+          SENDSAY_LOGIN: ${{ secrets.SENDSAY_LOGIN }}
+          SENDSAY_APIKEY: ${{ secrets.SENDSAY_APIKEY }}
+          AMO_TOKEN: ${{ secrets.AMO_TOKEN }}
+        run: |
+          pip install -q requests
+          python scripts/fetch_conversion.py
 
       - name: Сборка страницы и алертов
         run: python scripts/build.py

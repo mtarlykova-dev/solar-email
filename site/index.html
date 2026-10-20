@@ -166,6 +166,25 @@ tr.grp td { font-weight: 600; }
 tr.bmrow td { color: var(--ink-3); font-style: normal; }
 tr.bmrow:first-of-type td { border-top: 1px solid var(--ink-3); }
 a { color: var(--focus); }
+.conv { margin-top: 24px; }
+.conv-sc { padding: 16px 0 20px; border-top: 1px solid var(--line); }
+.conv-sc h3 { margin: 0 0 4px; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.conv-sc h3 i { width: 10px; height: 10px; border-radius: 50%; background: var(--sc); }
+.conv-line { color: var(--ink-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+.conv-big { font-size: 26px; font-weight: 600; color: var(--ink); letter-spacing: -0.02em; margin-right: 6px; }
+.conv-grid { display: grid; grid-template-columns: minmax(260px, 1.3fr) 1fr 1fr; gap: 16px 32px; margin-top: 14px; }
+@media (max-width: 860px) { .conv-grid { grid-template-columns: 1fr; } }
+.conv-grid h4 { margin: 0 0 8px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.cmp { display: grid; grid-template-columns: 110px 1fr auto; gap: 6px 10px; align-items: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+.cmp .bar { height: 10px; background: var(--track); border-radius: 0 4px 4px 0; position: relative; }
+.cmp .bar b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; min-width: 2px; }
+.cmp .v { text-align: right; white-space: nowrap; }
+.cmp .v small { color: var(--ink-3); }
+.conv-note { font-size: 12px; color: var(--ink-3); margin-top: 8px; }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.kv dt { color: var(--ink-2); } .kv dd { margin: 0; text-align: right; font-weight: 500; }
+.leads { font-size: 12px; color: var(--ink-3); margin-top: 10px; line-height: 1.7; }
+.leads a { color: var(--focus); text-decoration: none; margin-right: 6px; }
 .foot { margin-top: 56px; color: var(--ink-3); font-size: 12px; max-width: 72ch; }
 .foot p { margin: 4px 0; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -217,6 +236,12 @@ a { color: var(--focus); }
     <h2>Сравнение ru и en</h2>
     <p class="sub">Сравнение за выбранный период по всем сценариям продукта.</p>
     <div class="tbl-wrap" id="matrix"></div>
+  </section>
+
+  <section id="conv-sec" hidden>
+    <h2>Влияние на возврат лидов</h2>
+    <p class="sub" id="conv-sub"></p>
+    <div class="conv" id="conv"></div>
   </section>
 
   <div class="foot">
@@ -551,7 +576,56 @@ a { color: var(--focus); }
       (B ? `<p class="sub" style="margin-top:8px">Ориентиры: <a href="${esc(B.source_url)}" target="_blank" rel="noopener">${esc(B.source)}</a>. Публичных бенчмарков именно для B2B-финтеха нет, это ближайшие срезы.</p>` : "");
   }
 
-  function render() { renderAlerts(); renderKpis(); renderChains(); renderTrend(); renderMatrix(); }
+  // ---------- Влияние на возврат лидов ----------
+  function renderConversion() {
+    const C = R.conversion, sec = document.getElementById("conv-sec");
+    if (!C) { sec.hidden = true; return; }
+    sec.hidden = false;
+    const gen = new Date(C.generated_at).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Moscow" });
+    const basis = (C.engagement_basis || []).map(b => b === "read" ? "открытия" : "клики").join(" и ") || "нет данных";
+    document.getElementById("conv-sub").textContent =
+      `Сколько получателей цепочки вернулись в воронку ${C.pipeline} в течение ${C.window_days} дней после любого письма: ` +
+      `сделка вышла из отказа, создана новая сделка или клиент сам вышел на связь. События в первые ${C.ignore_first_hours} ч после первого письма не считаются. ` +
+      `Получатели с ${fmtDate(C.start_date)}, сопоставлены с amoCRM по email. Вовлечённость — ${basis}. Данные на ${gen} МСК.`;
+    const TYPES = { reopen: "Вышла из отказа", new_lead: "Новая сделка", inbound: "Сам вышел на связь" };
+    const pct = (a, b) => b ? a / b : null;
+    let html = "";
+    for (const seq of Object.keys(R.scenarios)) {
+      if (state.scenario !== "all" && seq !== state.scenario) continue;
+      const s = C.scenarios[seq]; if (!s || !s.recipients) continue;
+      const e = s.engaged, n = s.not_engaged;
+      const re = pct(e.returned, e.n), rn = pct(n.returned, n.n);
+      const mx = Math.max(re || 0, rn || 0, 0.0001);
+      const row = (label, g, r, color) => `<span>${label}</span><div class="bar"><b style="width:${((r || 0) / mx * 100).toFixed(1)}%;background:${color}"></b></div>` +
+        `<span class="v">${fmtPct(r)} <small>${g.returned} из ${fmtInt(g.n)}</small></span>`;
+      let verdict = "";
+      if (e.n >= 20 && n.n >= 20 && re != null && rn != null) {
+        const d = (re - rn) * 100;
+        verdict = `Открывавшие возвращаются ${d >= 0 ? "чаще" : "реже"} на ${Math.abs(d).toFixed(1).replace(".", ",")} п.п.` + (rn > 0 ? ` (в ${(re / rn).toFixed(1).replace(".", ",")} раза).` : ".");
+      } else verdict = "Мало людей в одной из групп (меньше 20) — разница может быть случайной.";
+      const letters = Object.entries(s.by_letter).sort((a, b) => (+a[0] || 99) - (+b[0] || 99));
+      const types = Object.entries(TYPES).map(([k, l]) => `<dt>${l}</dt><dd>${s.by_type[k] || 0}</dd>`).join("");
+      const months = Object.entries(s.by_month).map(([m, v]) => `<dt>${m}</dt><dd>${v.returned} из ${v.n}</dd>`).join("");
+      html += `<div class="conv-sc" style="--sc:var(${colorOf[seq]})">
+        <h3><i></i>${esc(R.scenarios[seq].name)}</h3>
+        <div class="conv-line"><span class="conv-big">${fmtPct(pct(s.returned, s.matched))}</span>
+          вернулись ${s.returned} из ${fmtInt(s.matched)} найденных в amoCRM · получили письма ${fmtInt(s.recipients)} · не найдены в amoCRM ${fmtInt(s.recipients - s.matched)}${s.median_days != null ? ` · в среднем через ${String(s.median_days).replace(".", ",")} дн. после письма` : ""}</div>
+        <div class="conv-grid">
+          <div><h4>Открывали письма vs не открывали</h4>
+            <div class="cmp">${row("Открывали", e, re, "var(--f3)")}${row("Не открывали", n, rn, "var(--f1)")}</div>
+            <div class="conv-note">${verdict}</div></div>
+          <div><h4>Как вернулись</h4><dl class="kv">${types}</dl>
+            <div class="conv-note">Один человек может попасть в несколько типов.</div></div>
+          <div><h4>После какого письма</h4><dl class="kv">${letters.map(([k, v]) => `<dt>${k === "?" ? "Без номера" : "Письмо " + k}</dt><dd>${v}</dd>`).join("") || "<dt>—</dt><dd></dd>"}</dl>
+            ${months ? `<details><summary>По месяцу входа в цепочку</summary><dl class="kv" style="margin-top:6px">${months}</dl></details>` : ""}</div>
+        </div>
+        ${s.lead_ids.length ? `<div class="leads">Сделки: ${s.lead_ids.map(id => `<a href="https://solarstaff.amocrm.ru/leads/detail/${id}" target="_blank" rel="noopener">${id}</a>`).join("")}</div>` : ""}
+      </div>`;
+    }
+    document.getElementById("conv").innerHTML = html || `<p class="empty">Для выбранного сценария данных о возвратах нет.</p>`;
+  }
+
+  function render() { renderAlerts(); renderKpis(); renderChains(); renderTrend(); renderMatrix(); renderConversion(); }
 
   fetch("report.json", { cache: "no-store" }).then(r => {
     if (!r.ok) throw new Error("HTTP " + r.status);
