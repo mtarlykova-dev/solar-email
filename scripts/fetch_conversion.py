@@ -22,7 +22,9 @@
 import datetime as dt
 import json
 import os
+import re
 import statistics
+import traceback
 import sys
 import time
 from collections import Counter, defaultdict
@@ -35,6 +37,35 @@ from fetch_sendsay import SendsayError, call  # noqa: E402
 from build import NUM_PREFIX  # noqa: E402
 
 OUT = ROOT / "data" / "conversion.json"
+STATUS_FILE = ROOT / "data" / "conversion_status.json"
+STATUS = {"stages": [], "warnings": [], "error": None}
+EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+
+
+def scrub(text):
+    """Убирает адреса из текста ошибок: лог и статус лежат в публичном репозитории."""
+    return EMAIL_RE.sub("<email>", str(text))[:500]
+
+
+def stage(msg):
+    msg = scrub(msg)
+    print(msg, flush=True)
+    STATUS["stages"].append(msg)
+
+
+def warn(msg):
+    msg = scrub(msg)
+    print(f"::warning::{msg}", flush=True)
+    STATUS["warnings"].append(msg)
+
+
+def save_status(ok):
+    STATUS["ok"] = ok
+    STATUS["finished_at"] = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    STATUS_FILE.parent.mkdir(exist_ok=True)
+    with open(STATUS_FILE, "w", encoding="utf-8") as f:
+        json.dump(STATUS, f, ensure_ascii=False, indent=1)
+        f.write("\n")
 SUBDOMAIN = "solarstaff"
 AMO = f"https://{SUBDOMAIN}.amocrm.ru/api/v4"
 LOST = 143
@@ -62,6 +93,10 @@ def chunks(xs, n):
 
 
 def to_ts(v):
+    if v is None or str(v).strip() == "":
+        return None
+    if isinstance(v, (int, float)) or str(v).isdigit():
+        return int(float(v))
     s = str(v)[:19].replace("T", " ")
     fmt = "%Y-%m-%d %H:%M:%S" if len(s) > 10 else "%Y-%m-%d"
     return int(dt.datetime.strptime(s, fmt).replace(tzinfo=dt.timezone(dt.timedelta(hours=3))).timestamp())
@@ -81,18 +116,26 @@ def load_recipients(login, key, cfg):
         if strict and not m:
             continue  # выпуски вне цепочки (например, старые «ABM Banks»)
         issue_info[str(iid)] = (str(seq), int(m.group(1)) if m else None)
-    print(f"Sendsay: выпусков в цепочках — {len(issue_info)}")
+    stage(f"Sendsay: выпусков в цепочках — {len(issue_info)} (всего выпусков сценариев — {len(issues)})")
 
     people = {s: defaultdict(lambda: {"deliv": [], "engaged": False}) for s in seqs}
     statuses = Counter()
+    skipped = 0
     for part in chunks(issue_info, 200):
         rows = sendsay_all(login, key, ["deliv.member.email", "deliv.issue.id", "deliv.issue.dt", "deliv.status"],
                            [{"a": "deliv.issue.id", "op": "in", "v": part}])
-        for email, iid, when, status in rows:
+        for row in rows:
+            if isinstance(row, dict):
+                row = [row.get(k) for k in ("deliv.member.email", "deliv.issue.id", "deliv.issue.dt", "deliv.status")]
+            email, iid, when, status = (list(row) + [None] * 4)[:4]
             statuses[str(status)] += 1
+            ts = to_ts(when)
+            if not email or ts is None or str(iid) not in issue_info:
+                skipped += 1
+                continue
             seq, step = issue_info[str(iid)]
-            people[seq][email.strip().lower()]["deliv"].append((to_ts(when), step))
-    print(f"Sendsay: доставок — {sum(statuses.values())}, статусы: {dict(statuses)}")
+            people[seq][email.strip().lower()]["deliv"].append((ts, step))
+    stage(f"Sendsay: доставок — {sum(statuses.values())}, пропущено без адреса/даты — {skipped}, статусы: {dict(statuses)}")
 
     basis = []
     for kind in ("read", "click"):
@@ -100,14 +143,19 @@ def load_recipients(login, key, cfg):
             for part in chunks(issue_info, 200):
                 rows = sendsay_all(login, key, [f"{kind}.member.email", f"{kind}.issue.id"],
                                    [{"a": f"{kind}.issue.id", "op": "in", "v": part}])
-                for email, iid in rows:
+                for row in rows:
+                    if isinstance(row, dict):
+                        row = [row.get(f"{kind}.member.email"), row.get(f"{kind}.issue.id")]
+                    email, iid = (list(row) + [None, None])[:2]
+                    if not email or str(iid) not in issue_info:
+                        continue
                     seq, _ = issue_info[str(iid)]
                     p = people[seq].get(email.strip().lower())
                     if p:
                         p["engaged"] = True
             basis.append(kind)
-        except SendsayError as e:
-            print(f"Sendsay: {kind}.* недоступно ({str(e)[:200]}) — вовлечённость без этого источника")
+        except Exception as e:  # noqa: BLE001
+            warn(f"Sendsay: {kind}.* недоступно ({e}) — вовлечённость без этого источника")
     return people, basis
 
 
@@ -166,7 +214,7 @@ def match_contacts(amo, emails):
         if hits:
             found[email] = {"contacts": hits, "companies": companies}
         if (i + 1) % 200 == 0:
-            print(f"amoCRM: проверено адресов {i + 1} из {len(emails)}")
+            stage(f"amoCRM: проверено адресов {i + 1} из {len(emails)}")
     return found
 
 
@@ -190,12 +238,18 @@ def lead_details(amo, ids):
 def reopen_events(amo, pipe, since):
     """lead_id -> [ts] выходов из «Закрыто и не реализовано» в Inbound."""
     res = defaultdict(list)
-    params = {"limit": 100, "filter[type]": "lead_status_changed", "filter[created_at][from]": since,
-              "filter[value_before][leads_statuses][0][pipeline_id]": pipe,
-              "filter[value_before][leads_statuses][0][status_id]": LOST}
-    for e in amo.paginate("/events", params, "events"):
+    base = {"limit": 100, "filter[type]": "lead_status_changed", "filter[created_at][from]": since}
+    narrow = dict(base, **{"filter[value_before][leads_statuses][0][pipeline_id]": pipe,
+                           "filter[value_before][leads_statuses][0][status_id]": LOST})
+    try:
+        events = list(amo.paginate("/events", narrow, "events"))
+    except RuntimeError as e:
+        warn(f"amoCRM: фильтр по этапу «до» не принят ({e}), беру все смены этапов и фильтрую сама")
+        events = list(amo.paginate("/events", base, "events"))
+    for e in events:
+        before = ((e.get("value_before") or [{}])[0].get("lead_status") or {})
         after = ((e.get("value_after") or [{}])[0].get("lead_status") or {})
-        if after.get("id") != LOST and after.get("pipeline_id") == pipe:
+        if before.get("id") == LOST and after.get("id") != LOST and after.get("pipeline_id") == pipe:
             res[e["entity_id"]].append(e["created_at"])
     return res
 
@@ -255,12 +309,12 @@ def main():
 
     people, basis = load_recipients(login, key, cfg)
     emails = {e for s in people.values() for e in s}
-    print(f"Получателей (уникальных адресов): {len(emails)}")
+    stage(f"Получателей (уникальных адресов): {len(emails)}")
 
     amo = Amo(token)
     pipe = inbound_pipeline(amo)
     match = match_contacts(amo, emails)
-    print(f"amoCRM: найдено контактов для {len(match)} адресов из {len(emails)}")
+    stage(f"amoCRM: найдено контактов для {len(match)} адресов из {len(emails)}")
 
     contact_ids = {c for m in match.values() for c in m["contacts"]}
     company_ids = {c for m in match.values() for c in m["companies"]}
@@ -270,7 +324,7 @@ def main():
     leads = {i: l for i, l in lead_details(amo, all_leads).items() if l["pipeline_id"] == pipe}
     reopen = reopen_events(amo, pipe, since)
     touches = inbound_touches(amo, since)
-    print(f"amoCRM: сделок Inbound — {len(leads)}, выходов из отказа — {sum(map(len, reopen.values()))}, "
+    stage(f"amoCRM: сделок Inbound — {len(leads)}, выходов из отказа — {sum(map(len, reopen.values()))}, "
           f"входящих обращений — {sum(map(len, touches.values()))}")
 
     def events_for(m):
@@ -331,7 +385,7 @@ def main():
             "median_days": round(statistics.median(s["days"]), 1) if s["days"] else None,
             "lead_ids": sorted(s["lead_ids"]),
         }
-        print(f"Сценарий {seq}: получили {s['recipients']}, найдены в amoCRM {s['matched']}, вернулись {s['returned']}")
+        stage(f"Сценарий {seq}: получили {s['recipients']}, найдены в amoCRM {s['matched']}, вернулись {s['returned']}")
 
     payload = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
@@ -342,8 +396,17 @@ def main():
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, indent=1)
         f.write("\n")
-    print(f"Записано: {OUT.relative_to(ROOT)}")
+    stage(f"Записано: {OUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+        save_status(True)
+    except Exception as e:  # noqa: BLE001
+        frames = traceback.extract_tb(e.__traceback__)[-4:]
+        STATUS["error"] = {"type": type(e).__name__, "message": scrub(e),
+                           "where": [f"{os.path.basename(f.filename)}:{f.lineno} {f.name}" for f in frames]}
+        save_status(False)
+        print(f"::error::{type(e).__name__}: {scrub(e)}", flush=True)
+        sys.exit(1)
