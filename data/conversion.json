@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-20T20:23:40+00:00",
+ "generated_at": "2026-10-20T21:00:42+00:00",
  "window_days": 60,
  "ignore_first_hours": 24,
  "pipeline": "Inbound",
@@ -49,6 +49,7 @@
    "engaged": {
     "n": 70,
     "returned": 10,
+    "won": 1,
     "by_type": {
      "inbound": 4,
      "new_lead": 4,
@@ -58,6 +59,7 @@
    "not_engaged": {
     "n": 187,
     "returned": 18,
+    "won": 0,
     "by_type": {
      "new_lead": 4,
      "inbound": 11,
@@ -105,7 +107,18 @@
     "Mаркетинг · успешно": 1,
     "Воронка Оплаты · отказ": 1,
     "HDE · успешно": 1
-   }
+   },
+   "won": 1,
+   "won_ids": [
+    33061223
+   ],
+   "won_median_days": 1.9,
+   "conversion_pipelines": [
+    "Inbound"
+   ],
+   "won_stage": [
+    "Передача в аккаунтинг"
+   ]
   },
   "7": {
    "recipients": 1,
@@ -122,18 +135,29 @@
    "engaged": {
     "n": 0,
     "returned": 0,
+    "won": 0,
     "by_type": {}
    },
    "not_engaged": {
     "n": 1,
     "returned": 0,
+    "won": 0,
     "by_type": {}
    },
    "median_days": null,
    "lead_ids": [],
    "pipelines": {
     "Inbound · отказ": 1
-   }
+   },
+   "won": 0,
+   "won_ids": [],
+   "won_median_days": null,
+   "conversion_pipelines": [
+    "Inbound"
+   ],
+   "won_stage": [
+    "Передача в аккаунтинг"
+   ]
   },
   "18": {
    "recipients": 79,
@@ -166,11 +190,13 @@
    "engaged": {
     "n": 25,
     "returned": 0,
+    "won": 0,
     "by_type": {}
    },
    "not_engaged": {
     "n": 54,
     "returned": 0,
+    "won": 0,
     "by_type": {}
    },
    "median_days": null,
@@ -191,7 +217,16 @@
     "Mаркетинг · успешно": 2,
     "Воронка Оплаты · в работе": 1,
     "Воронка Оплаты · успешно": 1
-   }
+   },
+   "won": 0,
+   "won_ids": [],
+   "won_median_days": null,
+   "conversion_pipelines": [
+    "Inbound"
+   ],
+   "won_stage": [
+    "Передача в аккаунтинг"
+   ]
   },
   "3": {
    "recipients": 148,
@@ -218,6 +253,7 @@
    "engaged": {
     "n": 69,
     "returned": 8,
+    "won": 0,
     "by_type": {
      "new_lead": 1,
      "reopen": 4,
@@ -227,6 +263,7 @@
    "not_engaged": {
     "n": 78,
     "returned": 2,
+    "won": 0,
     "by_type": {
      "reopen": 1,
      "new_lead": 1
@@ -256,7 +293,16 @@
     "Активные клиенты · успешно": 1,
     "Outbound · в работе": 1,
     "Партнерство · отказ": 1
-   }
+   },
+   "won": 0,
+   "won_ids": [],
+   "won_median_days": null,
+   "conversion_pipelines": [
+    "Inbound"
+   ],
+   "won_stage": [
+    "Передача в аккаунтинг"
+   ]
   },
   "1": {
    "recipients": 241,
@@ -283,6 +329,7 @@
    "engaged": {
     "n": 107,
     "returned": 12,
+    "won": 1,
     "by_type": {
      "inbound": 8,
      "reopen": 3,
@@ -292,6 +339,7 @@
    "not_engaged": {
     "n": 132,
     "returned": 13,
+    "won": 1,
     "by_type": {
      "inbound": 7,
      "new_lead": 7
@@ -333,7 +381,19 @@
     "Партнерство · отказ": 1,
     "Активные клиенты · отказ": 1,
     "Inbound · в работе": 1
-   }
+   },
+   "won": 2,
+   "won_ids": [
+    32495556,
+    32863061
+   ],
+   "won_median_days": 83.9,
+   "conversion_pipelines": [
+    "Inbound"
+   ],
+   "won_stage": [
+    "Передача в аккаунтинг"
+   ]
   }
  }
 }
