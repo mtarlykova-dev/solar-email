@@ -1,4 +1,4 @@
-{"generated_at":"2026-10-20T19:55:52+00:00","source":"sendsay-api","rows":[
+{"generated_at":"2026-10-20T20:11:22+00:00","source":"sendsay-api","rows":[
 {"d":"2026-01-01","seq":"3","name":"Письмо 1 (после регистрации)","subject":"[% anketa.custom.fio %], для вас важная информация о сервисе","sent":2,"delivered":1,"bounced":1,"opens":0,"u_opens":0,"clicks":0,"u_clicks":0,"unsubs":0},
 {"d":"2026-01-02","seq":"3","name":"Письмо 1 (после регистрации)","subject":"[% anketa.custom.fio %], для вас важная информация о сервисе","sent":3,"delivered":3,"bounced":0,"opens":9,"u_opens":2,"clicks":6,"u_clicks":1,"unsubs":0},
 {"d":"2026-01-03","seq":"3","name":"Письмо 1 (после регистрации)","subject":"[% anketa.custom.fio %], для вас важная информация о сервисе","sent":1,"delivered":1,"bounced":0,"opens":0,"u_opens":0,"clicks":0,"u_clicks":0,"unsubs":0},
