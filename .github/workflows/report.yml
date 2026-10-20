@@ -63,6 +63,13 @@ jobs:
           FETCH_DAYS: ${{ github.event.inputs.fetch_days }}
         run: python scripts/fetch_sendsay.py
 
+      - name: Проверка секрета AMO_TOKEN
+        if: env.HAS_AMO != 'true'
+        run: |
+          msg="Нет секрета AMO_TOKEN (Settings → Secrets and variables → Actions → вкладка Secrets → Repository secrets). Блок «Влияние на возврат лидов» не обновлён."
+          echo "::warning::$msg"
+          echo "### ⚠️ $msg" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Влияние на возврат лидов (Sendsay × amoCRM)
         if: env.HAS_SENDSAY == 'true' && env.HAS_AMO == 'true'
         continue-on-error: true
