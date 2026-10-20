@@ -130,6 +130,8 @@ def load_recipients(login, key, cfg):
             email, iid, when, status = (list(row) + [None] * 4)[:4]
             statuses[str(status)] += 1
             ts = to_ts(when)
+            if str(status) != "1":
+                continue  # письмо не доставлено (отрицательные коды Sendsay — ошибки доставки)
             if not email or ts is None or str(iid) not in issue_info:
                 skipped += 1
                 continue
@@ -167,8 +169,14 @@ class Amo:
         self.s.headers["Authorization"] = f"Bearer {token}"
 
     def get(self, path, params=None):
-        for attempt in range(6):
-            r = self.s.get(AMO + path, params=params, timeout=60)
+        for attempt in range(8):
+            try:
+                r = self.s.get(AMO + path, params=params, timeout=60)
+            except requests.exceptions.RequestException:
+                # amoCRM иногда обрывает соединение: ждём и переподключаемся
+                time.sleep(3 * (attempt + 1))
+                self.s.close()
+                continue
             time.sleep(0.15)  # лимит amoCRM — 7 запросов в секунду
             if r.status_code == 429 or r.status_code >= 500:
                 time.sleep(2 * (attempt + 1))
