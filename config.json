@@ -72,9 +72,11 @@
   },
   "default_product": "Solar Staff",
   "conversion": {
-    "_help": "Влияние на конверсию (scripts/fetch_conversion.py): возврат = выход сделки из отказа, новая сделка или входящее обращение в воронке Inbound в течение window_days после любого письма цепочки; события в первые ignore_first_hours после первого письма не считаются.",
+    "_help": "Влияние на конверсию (scripts/fetch_conversion.py): возврат = выход сделки из отказа, новая сделка или входящее обращение (вне открытой сделки) в воронках pipelines в течение window_days после любого письма цепочки; события в первые ignore_first_hours после первого письма не считаются. Дальше — сколько вернувшихся дошли до успешного этапа («Передача в аккаунтинг»). Для отдельной цепочки воронки можно задать в scenarios.<ID>.conversion_pipelines.",
     "window_days": 60,
     "ignore_first_hours": 24,
-    "pipeline": "Inbound"
+    "pipelines": [
+      "Inbound"
+    ]
   }
 }

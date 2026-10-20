@@ -68,7 +68,7 @@ def save_status(ok):
         f.write("\n")
 SUBDOMAIN = "solarstaff"
 AMO = f"https://{SUBDOMAIN}.amocrm.ru/api/v4"
-LOST = 143
+LOST, WON = 143, 142
 DAY = 86400
 
 
@@ -199,14 +199,29 @@ class Amo:
             params["page"] += 1
 
 
-def inbound_pipeline(amo):
-    """(id воронки Inbound, {id воронки: название})."""
+def load_pipelines(amo):
+    """{id воронки: название}, {id воронки: название успешного этапа (статус 142)}."""
     pipes = amo.get("/leads/pipelines")["_embedded"]["pipelines"]
     names = {p["id"]: p["name"].strip() for p in pipes}
+    won = {}
     for p in pipes:
-        if p["name"].strip().lower().startswith("inbound"):
-            return p["id"], names
-    raise RuntimeError("Не нашла воронку Inbound")
+        for st in (p.get("_embedded") or {}).get("statuses", []):
+            if st["id"] == WON:
+                won[p["id"]] = st["name"].strip()
+    return names, won
+
+
+def resolve_pipelines(names, wanted):
+    """Названия из config.json -> id воронок. Сравнение без регистра и пробелов, латиница/кириллица не путаются."""
+    norm = lambda x: "".join(x.lower().split())  # noqa: E731
+    ids = set()
+    for w in wanted:
+        hit = [i for i, n in names.items() if norm(n) == norm(w)] or \
+              [i for i, n in names.items() if norm(n).startswith(norm(w))]
+        if not hit:
+            raise RuntimeError(f"Нет воронки «{w}» в amoCRM. Есть: {', '.join(names.values())}")
+        ids.update(hit)
+    return ids
 
 
 def lead_state(l):
@@ -250,21 +265,24 @@ def lead_details(amo, ids):
     return out
 
 
-def reopen_events(amo, pipe, since):
-    """lead_id -> [ts] выходов из «Закрыто и не реализовано» в Inbound."""
+def reopen_events(amo, pipes, since):
+    """lead_id -> [ts] выходов из «Закрыто и не реализовано» в рабочий этап той же воронки."""
     res = defaultdict(list)
     base = {"limit": 100, "filter[type]": "lead_status_changed", "filter[created_at][from]": since}
-    narrow = dict(base, **{"filter[value_before][leads_statuses][0][pipeline_id]": pipe,
-                           "filter[value_before][leads_statuses][0][status_id]": LOST})
+    events = []
     try:
-        events = list(amo.paginate("/events", narrow, "events"))
+        for i, pipe in enumerate(sorted(pipes)):
+            narrow = dict(base, **{"filter[value_before][leads_statuses][0][pipeline_id]": pipe,
+                                   "filter[value_before][leads_statuses][0][status_id]": LOST})
+            events += list(amo.paginate("/events", narrow, "events"))
     except RuntimeError as e:
         warn(f"amoCRM: фильтр по этапу «до» не принят ({e}), беру все смены этапов и фильтрую сама")
         events = list(amo.paginate("/events", base, "events"))
     for e in events:
         before = ((e.get("value_before") or [{}])[0].get("lead_status") or {})
         after = ((e.get("value_after") or [{}])[0].get("lead_status") or {})
-        if before.get("id") == LOST and after.get("id") != LOST and after.get("pipeline_id") == pipe:
+        if (before.get("id") == LOST and after.get("id") != LOST
+                and after.get("pipeline_id") in pipes and before.get("pipeline_id", after.get("pipeline_id")) in pipes):
             res[e["entity_id"]].append(e["created_at"])
     return res
 
@@ -309,7 +327,7 @@ def first_return(deliv, events, window):
 
 
 def empty_group():
-    return {"n": 0, "returned": 0, "by_type": Counter()}
+    return {"n": 0, "returned": 0, "won": 0, "by_type": Counter()}
 
 
 def main():
@@ -327,7 +345,11 @@ def main():
     stage(f"Получателей (уникальных адресов): {len(emails)}")
 
     amo = Amo(token)
-    pipe, pipe_names = inbound_pipeline(amo)
+    pipe_names, won_names = load_pipelines(amo)
+    default_p = conv.get("pipelines", ["Inbound"])
+    scen_p = {seq: resolve_pipelines(pipe_names, cfg["scenarios"].get(seq, {}).get("conversion_pipelines", default_p))
+              for seq in people}
+    all_p = set().union(*scen_p.values())
     match = match_contacts(amo, emails)
     stage(f"amoCRM: найдено контактов для {len(match)} адресов из {len(emails)}")
 
@@ -337,10 +359,10 @@ def main():
     co_leads = leads_of(amo, "companies", company_ids) if company_ids else {}
     all_leads = set().union(*c_leads.values(), *co_leads.values()) if (c_leads or co_leads) else set()
     all_info = lead_details(amo, all_leads)
-    leads = {i: l for i, l in all_info.items() if l["pipeline_id"] == pipe}
-    reopen = reopen_events(amo, pipe, since)
+    leads = {i: l for i, l in all_info.items() if l["pipeline_id"] in all_p}
+    reopen = reopen_events(amo, all_p, since)
     touches = inbound_touches(amo, since)
-    stage(f"amoCRM: сделок Inbound — {len(leads)}, выходов из отказа — {sum(map(len, reopen.values()))}, "
+    stage(f"amoCRM: сделок в воронках {', '.join(pipe_names[i] for i in all_p)} — {len(leads)}, выходов из отказа — {sum(map(len, reopen.values()))}, "
           f"входящих обращений — {sum(map(len, touches.values()))}")
 
     def person_leads(m):
@@ -352,19 +374,19 @@ def main():
         return lids
 
     def busy(lids, t):
-        """У человека в момент t идёт работа по сделке Inbound или он уже клиент (сделка успешна).
+        """У человека в момент t идёт работа по сделке в учитываемых воронках или он уже клиент (сделка успешна).
         Тогда входящее обращение — обычная переписка, а не возврат."""
         for lid in lids:
             l = leads[lid]
             closed = l.get("closed_at") or None
             if l["created_at"] <= t and (not closed or closed > t):
                 return True
-            if l["status_id"] == 142 and closed and closed <= t:
+            if l["status_id"] == WON and closed and closed <= t:
                 return True
         return False
 
-    def events_for(m):
-        lids = person_leads(m) & set(leads)
+    def events_for(m, pipes):
+        lids = {lid for lid in person_leads(m) if lid in leads and leads[lid]["pipeline_id"] in pipes}
         ev = []
         for lid in lids:
             ev.append((leads[lid]["created_at"], "new_lead", lid))
@@ -373,14 +395,15 @@ def main():
         touch += [(ts, None) for c in m["contacts"] for ts in touches.get(("contacts", c), [])]
         touch += [(ts, None) for c in m["companies"] for ts in touches.get(("companies", c), [])]
         ev += [(ts, "inbound", lid) for ts, lid in touch if not busy(lids, ts)]
-        return ev
+        return ev, lids
 
     result = {}
     for seq, ps in people.items():
+        P_ = scen_p[seq]
         s = {"recipients": len(ps), "matched": 0, "returned": 0, "by_type": Counter(),
              "by_letter": Counter(), "by_month": defaultdict(lambda: {"n": 0, "returned": 0}),
              "engaged": empty_group(), "not_engaged": empty_group(), "days": [], "lead_ids": set(),
-             "pipelines": Counter()}
+             "pipelines": Counter(), "won": 0, "won_ids": set(), "won_days": []}
         for email, p in ps.items():
             m = match.get(email)
             if not m or not p["deliv"]:
@@ -394,7 +417,8 @@ def main():
             grp["n"] += 1
             month = dt.datetime.fromtimestamp(min(p["deliv"])[0], dt.timezone(dt.timedelta(hours=3))).strftime("%Y-%m")
             s["by_month"][month]["n"] += 1
-            ev = in_window(p["deliv"], events_for(m), window, ignore_hours)
+            ev_all, lids = events_for(m, P_)
+            ev = in_window(p["deliv"], ev_all, window, ignore_hours)
             hit = first_return(p["deliv"], ev, window)
             if not hit:
                 continue
@@ -411,6 +435,15 @@ def main():
                 grp["by_type"][k] += 1
             if ref:
                 s["lead_ids"].add(ref)
+            # Дошёл до успешного этапа («Передача в аккаунтинг»): сделка в учитываемых воронках
+            # закрыта успешно после момента возврата (срок не ограничен окном).
+            won = [leads[lid] for lid in lids
+                   if leads[lid]["status_id"] == WON and (leads[lid].get("closed_at") or 0) >= ts]
+            if won:
+                s["won"] += 1
+                grp["won"] += 1
+                s["won_ids"].update(l["id"] for l in won)
+                s["won_days"].append((min(l["closed_at"] for l in won) - ts) / DAY)
         result[seq] = {
             "recipients": s["recipients"], "matched": s["matched"], "returned": s["returned"],
             "by_type": dict(s["by_type"]), "by_letter": dict(s["by_letter"]),
@@ -420,13 +453,17 @@ def main():
             "median_days": round(statistics.median(s["days"]), 1) if s["days"] else None,
             "lead_ids": sorted(s["lead_ids"]),
             "pipelines": dict(s["pipelines"].most_common()),
+            "won": s["won"], "won_ids": sorted(s["won_ids"]),
+            "won_median_days": round(statistics.median(s["won_days"]), 1) if s["won_days"] else None,
+            "conversion_pipelines": [pipe_names[i] for i in sorted(P_)],
+            "won_stage": sorted({won_names.get(i, "Успешно реализовано") for i in P_}),
         }
-        stage(f"Сценарий {seq}: получили {s['recipients']}, найдены в amoCRM {s['matched']}, вернулись {s['returned']}; "
+        stage(f"Сценарий {seq}: получили {s['recipients']}, найдены в amoCRM {s['matched']}, вернулись {s['returned']}, дошли до успешного этапа {s['won']}; "
               f"сделки получателей по воронкам: {dict(s['pipelines'].most_common(6))}")
 
     payload = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-        "window_days": window, "ignore_first_hours": ignore_hours, "pipeline": "Inbound", "start_date": cfg["start_date"],
+        "window_days": window, "ignore_first_hours": ignore_hours, "pipeline": ", ".join(default_p), "start_date": cfg["start_date"],
         "engagement_basis": basis, "scenarios": result,
     }
     OUT.parent.mkdir(exist_ok=True)
