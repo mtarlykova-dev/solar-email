@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-20T21:00:42+00:00",
+ "generated_at": "2026-10-21T04:27:28+00:00",
  "window_days": 60,
  "ignore_first_hours": 24,
  "pipeline": "Inbound",
@@ -233,8 +233,8 @@
    "matched": 147,
    "returned": 10,
    "by_type": {
-    "new_lead": 2,
     "reopen": 5,
+    "new_lead": 2,
     "inbound": 4
    },
    "by_letter": {
@@ -255,8 +255,8 @@
     "returned": 8,
     "won": 0,
     "by_type": {
-     "new_lead": 1,
      "reopen": 4,
+     "new_lead": 1,
      "inbound": 4
     }
    },
