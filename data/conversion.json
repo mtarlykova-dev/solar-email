@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-21T04:27:28+00:00",
+ "generated_at": "2026-10-22T04:28:55+00:00",
  "window_days": 60,
  "ignore_first_hours": 24,
  "pipeline": "Inbound",
@@ -10,17 +10,17 @@
  ],
  "scenarios": {
   "17": {
-   "recipients": 258,
-   "matched": 257,
-   "returned": 28,
+   "recipients": 261,
+   "matched": 260,
+   "returned": 29,
    "by_type": {
-    "inbound": 15,
+    "inbound": 16,
     "new_lead": 8,
     "reopen": 6
    },
    "by_letter": {
     "7": 20,
-    "1": 6,
+    "1": 7,
     "5": 1,
     "4": 1
    },
@@ -42,22 +42,22 @@
      "returned": 2
     },
     "2026-10": {
-     "n": 36,
-     "returned": 2
+     "n": 39,
+     "returned": 3
     }
    },
    "engaged": {
-    "n": 70,
-    "returned": 10,
+    "n": 72,
+    "returned": 11,
     "won": 1,
     "by_type": {
-     "inbound": 4,
+     "inbound": 5,
      "new_lead": 4,
      "reopen": 2
     }
    },
    "not_engaged": {
-    "n": 187,
+    "n": 188,
     "returned": 18,
     "won": 0,
     "by_type": {
@@ -66,7 +66,7 @@
      "reopen": 4
     }
    },
-   "median_days": 14.8,
+   "median_days": 13.3,
    "lead_ids": [
     33061223,
     33514167,
@@ -88,18 +88,18 @@
     34126581
    ],
    "pipelines": {
-    "Inbound · отказ": 159,
-    "Mаркетинг · в работе": 143,
-    "Inbound · в работе": 106,
+    "Inbound · отказ": 165,
+    "Mаркетинг · в работе": 146,
+    "Inbound · в работе": 107,
     "Inbound · успешно": 17,
     "Активные клиенты · в работе": 14,
     "HDE · отказ": 8,
     "Предотток · в работе": 5,
     "Outbound · в работе": 4,
     "Партнерство · успешно": 4,
+    "Партнерство · в работе": 3,
     "Outbound · отказ": 3,
     "Предотток · успешно": 2,
-    "Партнерство · в работе": 2,
     "Mаркетинг · отказ": 1,
     "Воронка (архив) · успешно": 1,
     "Мероприятия · успешно": 1,
@@ -160,8 +160,8 @@
    ]
   },
   "18": {
-   "recipients": 79,
-   "matched": 79,
+   "recipients": 81,
+   "matched": 81,
    "returned": 0,
    "by_type": {},
    "by_letter": {},
@@ -183,7 +183,7 @@
      "returned": 0
     },
     "2026-10": {
-     "n": 18,
+     "n": 20,
      "returned": 0
     }
    },
@@ -194,7 +194,7 @@
     "by_type": {}
    },
    "not_engaged": {
-    "n": 54,
+    "n": 56,
     "returned": 0,
     "won": 0,
     "by_type": {}
@@ -202,13 +202,13 @@
    "median_days": null,
    "lead_ids": [],
    "pipelines": {
-    "Mаркетинг · в работе": 84,
-    "Outbound · отказ": 82,
-    "Предотток · в работе": 72,
+    "Mаркетинг · в работе": 86,
+    "Outbound · отказ": 85,
+    "Предотток · в работе": 73,
     "Мероприятия · отказ": 31,
     "Мероприятия · успешно": 26,
     "Inbound · отказ": 13,
-    "Предотток · отказ": 8,
+    "Предотток · отказ": 9,
     "Wazzup (хлам) · в работе": 5,
     "Предотток · успешно": 3,
     "Outbound · в работе": 3,
@@ -233,8 +233,8 @@
    "matched": 147,
    "returned": 10,
    "by_type": {
-    "reopen": 5,
     "new_lead": 2,
+    "reopen": 5,
     "inbound": 4
    },
    "by_letter": {
@@ -255,8 +255,8 @@
     "returned": 8,
     "won": 0,
     "by_type": {
-     "reopen": 4,
      "new_lead": 1,
+     "reopen": 4,
      "inbound": 4
     }
    },
