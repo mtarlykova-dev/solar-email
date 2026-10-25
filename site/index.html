@@ -187,17 +187,40 @@ a { color: var(--focus); }
 .kv dt { color: var(--ink-2); } .kv dd { margin: 0; text-align: right; font-weight: 500; }
 .leads { font-size: 12px; color: var(--ink-3); margin-top: 10px; line-height: 1.7; }
 .leads a { color: var(--focus); text-decoration: none; margin-right: 6px; }
+body.locked .wrap > :not(header):not(#lock) { display: none; }
+.lock { max-width: 420px; margin: 48px auto 0; padding: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.lock h2 { margin-bottom: 6px; }
+.lock form { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.lock input[type=password] { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.lock .row { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13px; }
+.lock button[type=submit] { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 10px 14px; background: var(--s1); color: #fff; cursor: pointer; }
+.lock button[type=submit]:disabled { opacity: .6; cursor: wait; }
+.lock .err { color: var(--bad); font-size: 13px; min-height: 18px; }
+.logout { border: 0; background: none; color: var(--ink-3); font: inherit; font-size: 12px; cursor: pointer; padding: 0; text-decoration: underline; }
+[hidden] { display: none !important; }
 .foot { margin-top: 56px; color: var(--ink-3); font-size: 12px; max-width: 72ch; }
 .foot p { margin: 4px 0; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
-<body>
+<body class="locked">
 <div class="wrap">
   <header class="top">
     <h1>Триггерные рассылки <span>Solar Staff</span></h1>
     <div class="stamp" id="stamp">Загрузка данных…</div>
   </header>
+
+  <section class="lock" id="lock" hidden>
+    <h2>Отчёт защищён паролем</h2>
+    <p class="sub">Введите пароль, который вам передали. Данные расшифровываются только в вашем браузере.</p>
+    <form id="lockForm" autocomplete="on">
+      <input type="text" name="username" value="solar-email-report" autocomplete="username" hidden>
+      <input type="password" id="pw" autocomplete="current-password" placeholder="Пароль" required aria-label="Пароль">
+      <label class="row"><input type="checkbox" id="remember" checked> Запомнить на этом устройстве</label>
+      <div class="err" id="pwErr" role="alert"></div>
+      <button type="submit" id="pwBtn">Открыть отчёт</button>
+    </form>
+  </section>
 
   <div class="filters" role="group" aria-label="Фильтры">
     <div class="fgroup" id="fg-product">Продукт <div class="seg" data-f="product"></div></div>
@@ -249,6 +272,7 @@ a { color: var(--focus); }
   <div class="foot">
     <p>OR — уникальные открытия / доставлено. CTR — уникальные клики / доставлено. CTOR — уникальные клики / уникальные открытия. Отписки — от доставленных, ошибки — от отправленных.</p>
     <p>Открытия и клики за последние 2–3 дня ещё набираются, поэтому последняя неделя обычно ниже реальных значений.</p>
+    <p><button class="logout" id="logout" type="button" hidden>Выйти и забыть пароль на этом устройстве</button></p>
     <p>Данные обновляются автоматически из Sendsay через GitHub Actions. Только агрегаты по письмам, без адресов.</p>
   </div>
 </div>
@@ -638,10 +662,64 @@ a { color: var(--focus); }
 
   function render() { renderAlerts(); renderKpis(); renderChains(); renderTrend(); renderMatrix(); renderConversion(); }
 
-  fetch("report.json", { cache: "no-store" }).then(r => {
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    return r.json();
-  }).then(data => {
+  const PW_KEY = "solar-email-report-pw";
+  const $ = id => document.getElementById(id);
+  const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  async function decrypt(enc, pw) {
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64(enc.salt), iterations: enc.iter, hash: "SHA-256" },
+      base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(enc.iv) }, key, b64(enc.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  }
+  function unlock(data) {
+    document.body.classList.remove("locked"); $("lock").hidden = true; start(data);
+  }
+  function showLock(enc, msg) {
+    document.body.classList.add("locked"); $("lock").hidden = false;
+    $("stamp").textContent = "Нужен пароль";
+    $("pwErr").textContent = msg || ""; $("pw").focus();
+    $("lockForm").onsubmit = async e => {
+      e.preventDefault(); const pw = $("pw").value; if (!pw) return;
+      $("pwBtn").disabled = true; $("pwBtn").textContent = "Расшифровываю…"; $("pwErr").textContent = "";
+      try {
+        const d = await decrypt(enc, pw);
+        try { if ($("remember").checked) localStorage.setItem(PW_KEY, pw); else localStorage.removeItem(PW_KEY); } catch (_) {}
+        $("logout").hidden = false; unlock(d);
+      } catch (_) { $("pwErr").textContent = "Неверный пароль"; }
+      finally { $("pwBtn").disabled = false; $("pwBtn").textContent = "Открыть отчёт"; }
+    };
+  }
+  $("logout").onclick = () => { try { localStorage.removeItem(PW_KEY); } catch (_) {} location.reload(); };
+
+  (async () => {
+    try {
+      const r = await fetch("report.enc.json", { cache: "no-store" });
+      if (r.ok) {
+        const enc = await r.json();
+        let saved = null; try { saved = localStorage.getItem(PW_KEY); } catch (_) {}
+        if (saved) {
+          try { const d = await decrypt(enc, saved); $("logout").hidden = false; return unlock(d); }
+          catch (_) { try { localStorage.removeItem(PW_KEY); } catch (__) {} return showLock(enc, "Пароль изменился — введите новый"); }
+        }
+        return showLock(enc);
+      }
+      // без шифрования — только для локальной проверки
+      const p = await fetch("report.json", { cache: "no-store" });
+      if (p.status === 404) {
+        $("stamp").textContent = "Отчёт закрыт паролем";
+        $("lock").hidden = false; $("lockForm").hidden = true;
+        $("lock").querySelector(".sub").textContent = "Данные ещё не опубликованы: администратору нужно задать пароль (секрет REPORT_PASSWORD) и перезапустить обновление.";
+        return;
+      }
+      if (!p.ok) throw new Error("HTTP " + p.status);
+      unlock(await p.json());
+    } catch (err) {
+      $("stamp").textContent = "Не удалось загрузить данные: " + err.message;
+    }
+  })();
+
+  function start(data) {
     R = data;
     R.rows.sort((a, b) => a.d.localeCompare(b.d));
     R.thr = R.thresholds || { unsub: 0.01, bounce: 0.05 };
@@ -657,9 +735,7 @@ a { color: var(--focus); }
     setupFilters();
     render();
     let t; addEventListener("resize", () => { clearTimeout(t); t = setTimeout(renderTrend, 150); });
-  }).catch(err => {
-    document.getElementById("stamp").textContent = "Не удалось загрузить report.json: " + err.message;
-  });
+  }
 })();
 </script>
 </body>

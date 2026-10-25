@@ -3,3 +3,8 @@ data/demo.json
 data/*.tmp
 __pycache__/
 .DS_Store
+# Цифры отчёта не храним в публичном репозитории: каждый запуск собирает их заново,
+# на сайт они попадают только зашифрованными (секрет REPORT_PASSWORD).
+data/daily.json
+data/alerts.json
+data/conversion.json

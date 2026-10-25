@@ -17,6 +17,7 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(__file__))
 from common import ALERTS_FILE, DATA_FILE, METRICS, ROOT, detect_lang, load_config  # noqa: E402
 
+ENC_ITER = 200_000
 MSK = dt.timezone(dt.timedelta(hours=3))
 
 
@@ -219,15 +220,9 @@ def write_summary(alerts, meta, rows, generated_at):
     path = os.environ.get("GITHUB_STEP_SUMMARY")
     if not path:
         return
-    icon = {"high": "🔴", "medium": "🟠", "low": "🟡"}
-    lines = [f"## Триггерные рассылки — данные на {generated_at}", ""]
-    lines.append(f"Сценариев: {len(meta)}, строк данных: {len(rows)}")
-    lines.append("")
-    if alerts:
-        lines.append("### Алерты")
-        lines += [f"- {icon[a['level']]} **{a['title']}** — {a['detail']}" for a in alerts]
-    else:
-        lines.append("Алертов нет ✅")
+    # Сводка запуска в публичном репозитории видна всем — без цифр и названий писем, только количество.
+    lines = [f"## Триггерные рассылки — данные на {generated_at}", "",
+             f"Алертов: {len(alerts)}. Подробности — в отчёте (по паролю)."]
     with open(path, "a", encoding="utf-8") as f:
         f.write("\n".join(lines) + "\n")
 
@@ -280,8 +275,31 @@ def main():
         "conversion": load_conversion(),
         "rows": rows,
     }
-    with open(site / "report.json", "w", encoding="utf-8") as f:
-        json.dump(report, f, ensure_ascii=False, separators=(",", ":"))
+    raw = json.dumps(report, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    password = os.environ.get("REPORT_PASSWORD", "")
+    if password:
+        # PBKDF2-SHA256 -> ключ AES-256-GCM; страница расшифровывает в браузере по паролю (WebCrypto).
+        import base64
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+        salt, iv = os.urandom(16), os.urandom(12)
+        key = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=ENC_ITER).derive(password.encode("utf-8"))
+        b64 = lambda x: base64.b64encode(x).decode()  # noqa: E731
+        with open(site / "report.enc.json", "w", encoding="utf-8") as f:
+            json.dump({"v": 1, "iter": ENC_ITER, "salt": b64(salt), "iv": b64(iv),
+                       "ct": b64(AESGCM(key).encrypt(iv, raw, None))}, f)
+        print("Данные зашифрованы: _site/report.enc.json")
+    elif os.environ.get("REQUIRE_ENCRYPTION") == "1":
+        # Без пароля публикуем страницу без данных: открытые цифры на сайт не попадают.
+        msg = "Нет секрета REPORT_PASSWORD — отчёт опубликован без данных. Добавьте секрет и перезапустите workflow."
+        print(f"::warning::{msg}")
+        if os.environ.get("GITHUB_STEP_SUMMARY"):
+            with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+                f.write(f"### ⚠️ {msg}\n")
+    else:
+        with open(site / "report.json", "wb") as f:
+            f.write(raw)  # без шифрования — только для локальной проверки
     (site / ".nojekyll").touch()
 
     write_summary(alerts, meta, rows, payload.get("generated_at"))

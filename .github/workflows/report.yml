@@ -81,8 +81,14 @@ jobs:
           pip install -q requests
           python scripts/fetch_conversion.py
 
-      - name: Сборка страницы и алертов
-        run: python scripts/build.py
+      - name: Сборка страницы и алертов (данные шифруются паролем)
+        env:
+          REPORT_PASSWORD: ${{ secrets.REPORT_PASSWORD }}
+          REQUIRE_ENCRYPTION: "1"
+        run: |
+          pip install -q cryptography
+          python scripts/build.py
+          test ! -e _site/report.json   # открытые данные на сайт не публикуем
 
       - name: Сохранить данные в репозиторий
         run: |

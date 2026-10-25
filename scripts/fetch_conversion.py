@@ -458,8 +458,8 @@ def main():
             "conversion_pipelines": [pipe_names[i] for i in sorted(P_)],
             "won_stage": sorted({won_names.get(i, "Успешно реализовано") for i in P_}),
         }
-        stage(f"Сценарий {seq}: получили {s['recipients']}, найдены в amoCRM {s['matched']}, вернулись {s['returned']}, дошли до успешного этапа {s['won']}; "
-              f"сделки получателей по воронкам: {dict(s['pipelines'].most_common(6))}")
+        # Цифры по цепочке — только в зашифрованном отчёте: лог и статус публичного репозитория видны всем.
+        stage(f"Сценарий {seq}: посчитан")
 
     payload = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
